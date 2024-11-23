@@ -24,8 +24,9 @@ struct ContentView: View {
                     }
                 } else {
                     Button(action: {
+                        // Stop recording and then show the password prompt
                         self.audioRecorder.stopRecording()
-                        isPasswordPromptPresented = true // Show password prompt after stopping
+                        self.isPasswordPromptPresented = true
                     }) {
                         Image(systemName: "stop.fill")
                             .resizable()
@@ -40,22 +41,20 @@ struct ContentView: View {
             .navigationBarTitle("Sub 2")
             .navigationBarItems(trailing: EditButton())
             .overlay(
-                // Show password prompt as an overlay
                 PasswordPrompt(
                     isPresented: $isPasswordPromptPresented,
                     password: $currentPassword,
                     onSave: {
-                        audioRecorder.password = currentPassword
-                        if let lastRecording = audioRecorder.recordings.last {
-                            audioRecorder.uploadWAVFile(fileURL: lastRecording.fileURL, password: currentPassword)
-                        }
-                        currentPassword = ""
+                        // Encrypt the last recording with the provided password
+                        audioRecorder.encryptLastRecording(password: currentPassword)
+                        currentPassword = "" // Reset the password
                     }
                 )
                 .frame(width: 300, height: 200)
                 .background(Color.black.opacity(isPasswordPromptPresented ? 0.3 : 0))
                 .opacity(isPasswordPromptPresented ? 1 : 0)
             )
+
         }
     }
 }

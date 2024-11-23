@@ -7,10 +7,10 @@ struct PasswordPrompt: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            Text("Enter a Password for This Recording")
+            Text("Enter Password")
                 .font(.headline)
             
-            TextField("Password", text: $password)
+            SecureField("Password", text: $password)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
             
@@ -20,7 +20,7 @@ struct PasswordPrompt: View {
                 }
                 .foregroundColor(.red)
                 
-                Button("Save") {
+                Button("Submit") {
                     onSave()
                     isPresented = false
                 }
@@ -33,3 +33,4 @@ struct PasswordPrompt: View {
         .shadow(radius: 10)
     }
 }
+

@@ -9,14 +9,14 @@ class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     let objectWillChange = PassthroughSubject<AudioPlayer, Never>()
     
-    var isPlaying = false {
+    var isPlaying = false {//react to the completion of playbacking by updating the isPlaying object
         didSet {
             objectWillChange.send(self)
         }
     }
     
     var audioPlayer: AVAudioPlayer!
-    
+    //configure the audio session to play through the speaker
     func startPlayback(audio: URL) {
         let playbackSession = AVAudioSession.sharedInstance()
         

@@ -2,14 +2,15 @@
 import SwiftUI
 
 struct RecordingsList: View {
-    
     @ObservedObject var audioRecorder: AudioRecorder
     
     var body: some View {
         List {
-            ForEach(audioRecorder.recordings, id: \.createdAt) { recording in
-                RecordingRow(audioURL: recording.fileURL)
+            ForEach(audioRecorder.recordings.filter { FileManager.default.fileExists(atPath: $0.fileURL.path) }, id: \.fileURL) { recording in
+                RecordingRow(audioURL: recording.fileURL, audioRecorder: audioRecorder)
             }
+
+
             .onDelete(perform: delete)
         }
     }
@@ -23,16 +24,18 @@ struct RecordingsList: View {
     }
 }
 
+
 struct RecordingRow: View {
-    
     var audioURL: URL
-    
     @ObservedObject var audioPlayer = AudioPlayer()
+    @ObservedObject var audioRecorder: AudioRecorder
     
+    @State private var isPasswordPromptPresented = false
+    @State private var currentPassword = ""
     
     var body: some View {
         HStack {
-            Text("\(audioURL.lastPathComponent)")
+            Text(audioURL.lastPathComponent)
             Spacer()
             if audioPlayer.isPlaying == false {
                 Button(action: {
@@ -49,9 +52,33 @@ struct RecordingRow: View {
                         .imageScale(.large)
                 }
             }
+            Button(action: {
+                self.isPasswordPromptPresented = true // Show password prompt for decryption
+            }) {
+                Image(systemName: "lock.open")
+                    .imageScale(.large)
+                    .foregroundColor(.blue)
+            }
+        }
+        .sheet(isPresented: $isPasswordPromptPresented) {
+            PasswordPrompt(
+                isPresented: $isPasswordPromptPresented,
+                password: $currentPassword,
+                onSave: {
+                    audioRecorder.decryptAudio(fileURL: audioURL, password: currentPassword) { decryptedFileURL in
+                        if let decryptedFileURL = decryptedFileURL {
+                            self.audioPlayer.startPlayback(audio: decryptedFileURL)
+                        } else {
+                            print("Failed to decrypt audio.")
+                        }
+                        currentPassword = ""
+                    }
+                }
+            )
         }
     }
 }
+
 
 struct RecordingsList_Previews: PreviewProvider {
     static var previews: some View {

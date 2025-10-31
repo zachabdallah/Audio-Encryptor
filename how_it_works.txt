@@ -1,0 +1,56 @@
+we're doing work on a matrix called Zxx and it's a complicated object:
+
+this encryption method uses a Short-Time Fourier Transform (STFT) on the audio data to display a signal in both the time and frequency domains (thing of x and y axiis). By using it, we get a matrix called Zxx, which is a 2D, complex-valued array. It's rows correspond to "frequency bins", and it's columns correspond to "time slices".
+
+"Frequency bin" means that each row of Zxx corresponds to a specific frequency range. Heres's how it works:
+the range of frequencies that can be analyzed are from 0 to fs/2 where fs is the sampling rate, and the number of frequency bins (the number of rows in Zxx), is 'nperseg'//2 + 1 (you can change nperseg)
+The spacing between bins is determined by the segment length, where spacing = (fs/nperseg)
+for example, say fs=1000Hz and nperseg = 256, the spacing = 1000/256 = 3.9Hz. That means that the bins, or the rows of Zxx, represent frequencies from 0-3.9Hz, 3.9-7.8Hz, etc., and the number of bins there are is 256/2+1= 129
+
+"Time slices" are the columns of Zxx, and each column refers to a specific time segment of the signal. 
+When performing the STFT the signal is divided into overlapping segments. The amount of overlap is called "noverlap"
+the number of samples skipped between consecutive segments is the "hop size" = nperseg-noverlap.
+The duration of each slice = (hop size/fs), and the number of slices is determined by the length of the signal and the hop size.
+for example, say fs=1000Hz, nperseg = 256, and overlap = 128. Say that the signal also has 1000 samples, hop_size = 256-128 = 128. There will be (1000-128)/128+1=8 times slices, and each time slice has a duration of 128/1000 = 0.128 seconds. 
+#Therefore, with fs=1000Hz, nperseg=256, overlap=128, and sample_amount=1000, the shape of Zxx will be (129, 8)
+
+Each element of Zxx is a complex number that represents the magnitude of the signal AND the phase offset of the signal at a specific location in the matrix. Zxx[x,y] = Magnitude*e^(i*Phase). The phase of an audio signal is sort of like the angular shift of that component at a specific time. We will not be touching the phase.
+we can find the magnitude at all locations of the signal np.abs(Zxx), and we can find the phase by saying np.angle(Zxx)
+
+And so basically, if we use the example above where Zxx is of size (129, 8) and all that other stuff, and I reference Zxx[67,4], I know that I am referencing a signal that is between 261.3Hz and 265.2Hz, and the sound happened between 0.512 and 0.640 seconds. 
+Now, STFT also generates 1D arrays called 'frequencies[]' and 'times[]', and here's where it all comes together:
+Frequencies.size() is the amount of frequency bins there are, and times.size() is the amount of time sections there are
+Frequencies[] contains valuea of all the frequency bins which Zxx uses to reference the ~approximated~ frequency of it's elements based on what row they are in. So (Zxx[2: ] corresponds to frequencies[2]), frequencies[0] = 0Hz, frequencies[1] = 3.9Hz, etc... 
+So basically, you can't reference 3.4Hz here, it will be mapped to the nearest bin which will be read as 3.9Hz, and likewise for 'times'
+
+
+How the functions work:
+def get_permutation(length, password):
+encode() converts a string into bytes, which the hashing function requires. This byte-string then is made into a seed so that we can make a random number generator whose values are reproducible if we give it the same password later.
+permutation[] is an array of size 'length', whose elements are integers sequentially increasing from 0 to (length-1). This array is then shuffled in place using the rng we made. For example, permutation[6] = [0, 1, 2, 3, 4, 5] where length = 6
+
+def get_transforms(shape_frequencies, shape_times, password, frequencies, times):
+shape_frequencies is the number of frequency bins Zxx.shape[0], and shape_times is the number of time segments (Zxx.shape[1]).
+rng[] generates a random array of size Zxx.shape[0] with values uniformly distributed between some range (but reproducible because of our password-seeded rng)
+next
+Now rng[[ values multiply the times[] and frequency[] arrays each to make a "transformation_matrix"
+(optional, but i commented these lines out) Then the two matrices are normalized by dividing every element by the maximum value in rng[]. This will ensure that the maximum scaling factor is 1.0, keeping the transformations stable and avoiding excessive scaling
+
+def undo_transforms(shape_frequencies, shape_times, password, frequencies, times):
+this just does the inverse of all of the operations we did in get_transforms(). So instead of multiplying by rng[] values, the matrices are divided by them.
+
+def shuffle_segments(Zxx, password):
+get a permutation based on column amount and password
+the permutation, which might look like [2,1,5,3,0] for example, represents the new order for the columns in Zxx
+Then rearange the columns of Zxx according to that permutation
+
+def unshuffle_segments(Zxx, permutation):
+do the inverse operations done in shuffle_segments()
+argsort sorts array values from highest to lowest, so it always sorts from 0 to array_length-1, which is what undoes the shuffle
+
+def modify_Zxx(Zxx, transformation_matrix_frequencies, transformation_matrix_times, password):
+xx = np.abs(Zxx) * transformation_matrix_frequencies[:, np.newaxis] * transformation_matrix_times[np.newaxis, :] * np.exp(1j * np.angle(Zxx))
+multiply each row of Zxx by the elements of the frequency transformation array and multiply each column of Zxx by the the time transformations
+np.exp(1j * np.angle(Zxx) extracts the phase of each element and reconstructs it as a complex exponential so we can make absolute sure that phase is preserved. Now each element in Zxx = Modified_Magnitude*e^(i*original_phase)
+with all of that said, here is where the actual encryption starts; it's the shuffling. The transformation arrays only affected the amplitude of the elements in Zxx, but that alone is not really a big deal. The frequency and time bins remain fixed throughout this program, as 'frequencies' and 'times' don't change, but the times at which we reference them do: that's the encryption.
+this function transforms only the amplitude and keeps phase unchanged
